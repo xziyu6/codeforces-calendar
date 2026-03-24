@@ -1,7 +1,7 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin, type UserConfig } from "vite";
 import { readFileSync } from "node:fs";
 
-const copyStaticFilesPlugin = {
+const copyStaticFilesPlugin: Plugin = {
   name: "copy-extension-static-files",
   generateBundle() {
     this.emitFile({
@@ -19,7 +19,7 @@ const copyStaticFilesPlugin = {
 
 export default defineConfig(({ mode }) => {
   if (mode === "content") {
-    return {
+    const config: UserConfig = {
       plugins: [copyStaticFilesPlugin],
       build: {
         emptyOutDir: true,
@@ -37,9 +37,10 @@ export default defineConfig(({ mode }) => {
         }
       }
     };
+    return config;
   }
 
-  return {
+  const config: UserConfig = {
     build: {
       emptyOutDir: false,
       outDir: "dist",
@@ -57,4 +58,5 @@ export default defineConfig(({ mode }) => {
       }
     }
   };
+  return config;
 });

@@ -8,7 +8,16 @@ interface GoogleListResponse {
   items?: GoogleEvent[];
 }
 
-function eventBodyFromRequest(request: SyncContestRequest) {
+interface GoogleEventUpsertBody {
+  summary: string;
+  description: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  extendedProperties: { private: { cfContestId: string } };
+  source: { title: string; url: string };
+}
+
+function eventBodyFromRequest(request: SyncContestRequest): GoogleEventUpsertBody {
   return {
     summary: request.title,
     description: `${request.sourceUrl}\n\nSynced from Codeforces contest ${request.contestId}.`,
@@ -60,6 +69,7 @@ export async function createOrUpdateCalendarEvent(
   request: SyncContestRequest,
   token: string
 ): Promise<"created" | "updated"> {
+  // Idempotency key: if an event already carries this contest ID, update it instead of creating a duplicate.
   const existingEventId = await findExistingEvent(request, token);
   const body = JSON.stringify(eventBodyFromRequest(request));
 

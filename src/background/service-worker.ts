@@ -18,6 +18,7 @@ async function getFreshToken(): Promise<string> {
   try {
     return await getTokenInteractive(true);
   } catch {
+    // If cached auth state is stale, clear token once and force a fresh interactive flow.
     const cachedToken = await getTokenInteractive(false).catch(() => null);
     if (cachedToken) {
       await new Promise<void>((resolve) => {

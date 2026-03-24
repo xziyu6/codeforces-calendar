@@ -1,9 +1,10 @@
-import { buildUpcomingContestMap, fetchContestList } from "../lib/codeforces";
+import { buildUpcomingContestMap, fetchContestList, type CfContest } from "../lib/codeforces";
 import { isSyncContestRequest, type RowSyncState, type SyncContestRequest, type SyncContestResponse } from "../lib/messages";
 import { utcRangeFromContest, utcRangeFromDom } from "../lib/time";
 
 const INJECTED_ATTR = "data-cf-sync-injected";
 const STATUS_ATTR = "data-cf-sync-status";
+
 
 function setRowStatus(row: HTMLTableRowElement, status: RowSyncState, message = ""): void {
   row.setAttribute(STATUS_ATTR, status);
@@ -16,7 +17,7 @@ function setRowStatus(row: HTMLTableRowElement, status: RowSyncState, message = 
 function findUpcomingTable(): HTMLTableElement | null {
   const blocks = document.querySelectorAll<HTMLElement>(".contestList .datatable");
   for (const block of blocks) {
-    const heading = block.querySelector(".caption.titled");
+    const heading = block.querySelector(":scope > div[style*='font-size:1.4rem']");
     const headingText = heading?.textContent?.trim() ?? "";
     if (headingText.includes("Current or upcoming contests")) {
       return block.querySelector("table") as HTMLTableElement | null;
@@ -74,14 +75,7 @@ async function injectButtons(): Promise<void> {
     return;
   }
 
-  let upcomingMap: Map<string, { id: number; name: string; startTimeSeconds?: number; durationSeconds: number }> = new Map();
-  try {
-    const contests = await fetchContestList();
-    upcomingMap = buildUpcomingContestMap(contests);
-  } catch {
-    // API outage should not break the page; rows will show unavailable states.
-  }
-
+  // Inject once per row; observer re-runs this when Codeforces redraws the table.
   const rows = table.querySelectorAll<HTMLTableRowElement>("tr[data-contestid]");
   for (const row of rows) {
     if (row.getAttribute(INJECTED_ATTR) === "1") continue;
@@ -93,22 +87,27 @@ async function injectButtons(): Promise<void> {
     const actionCell = ensureActionCell(row);
     const statusEl = buildStatusElement();
     actionCell.appendChild(statusEl);
-
-    const contest = upcomingMap.get(contestId);
-    if (!contest) {
-      setRowStatus(row, "error", "unavailable");
-      continue;
-    }
-
+  
     const button = buildSyncButton(async () => {
       setRowStatus(row, "syncing", "syncing");
+      let contest: CfContest | undefined;
+      try {
+        // API lookup happens only on click; UI injection does not depend on API availability.
+        const contests = await fetchContestList();
+        contest = buildUpcomingContestMap(contests).get(contestId);
+      } catch {
+        // API is best-effort on click; DOM fallback remains available.
+      }
+
       const domStartText = row.querySelector("td:nth-child(3)")?.textContent ?? "";
       const domDurationText = row.querySelector("td:nth-child(4)")?.textContent ?? "";
+      const domTitle = row.querySelector("td.left")?.textContent?.trim() ?? "Codeforces Contest";
       const fromApi =
-        contest.startTimeSeconds !== undefined
+        contest?.startTimeSeconds !== undefined
           ? utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds)
           : null;
       const fromDom = utcRangeFromDom(domStartText, domDurationText);
+      // Prefer canonical API times when present, otherwise parse times from the visible row.
       const range = fromApi ?? fromDom;
       if (!range) {
         setRowStatus(row, "error", "time parse failed");
@@ -117,10 +116,10 @@ async function injectButtons(): Promise<void> {
       const request: SyncContestRequest = {
         type: "CF_SYNC_CONTEST",
         contestId,
-        title: contest.name,
+        title: contest?.name ?? domTitle,
         startUtcIso: range.startUtcIso,
         endUtcIso: range.endUtcIso,
-        sourceUrl: `https://codeforces.com/contest/${contest.id}`
+        sourceUrl: `https://codeforces.com/contest/${contest?.id ?? contestId}`
       };
       const response = await sendSyncRequest(request);
       if (response.ok) {
