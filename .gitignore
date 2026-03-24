@@ -1,0 +1,34 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Cursor/agent artifacts
+.cursor/
+agent-transcripts/
+debug-*.log
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env and local overrides
+.env
+.env.*
+!.env.example
+
+# Coverage and caches
+coverage/
+*.lcov
+*.tsbuildinfo
+.vite/
+
+# Temporary/archive files
+*.tmp
+*.temp
+*.zip

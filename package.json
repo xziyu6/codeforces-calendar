@@ -1,0 +1,23 @@
+{
+  "name": "codeforces-calendar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --mode content --watch",
+    "dev:worker": "vite build --mode worker --watch",
+    "build:content": "vite build --mode content",
+    "build:worker": "vite build --mode worker",
+    "build": "npm run build:content && npm run build:worker",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.24",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.18"
+  }
+}

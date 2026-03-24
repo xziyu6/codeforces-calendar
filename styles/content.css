@@ -1,0 +1,28 @@
+.cf-sync-button {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid #5b6ee1;
+  border-radius: 4px;
+  background: #eef1ff;
+  color: #25318f;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cf-sync-button:hover {
+  background: #dde3ff;
+}
+
+.cf-sync-status {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #666;
+}
+
+tr[data-cf-sync-status="synced"] .cf-sync-status {
+  color: #1f7a1f;
+}
+
+tr[data-cf-sync-status="error"] .cf-sync-status {
+  color: #b42318;
+}
