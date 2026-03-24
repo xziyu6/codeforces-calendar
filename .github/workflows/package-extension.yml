@@ -30,18 +30,8 @@ jobs:
       - name: Build extension
         run: npm run build
 
-      - name: Zip extension
-        run: |
-          rm -f codeforces-calendar.zip
-          cd dist
-          zip -r ../codeforces-calendar.zip . -x "*.zip"
-
-      - name: Verify zip root contains manifest
-        run: |
-          unzip -l codeforces-calendar.zip | grep "manifest.json"
-
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: codeforces-calendar
-          path: codeforces-calendar.zip
+          path: dist/**
