@@ -29,11 +29,16 @@ jobs:
 
       - name: Zip extension
         run: |
+          rm -f codeforces-calendar.zip
           cd dist
-          zip -r ../codeforces-calendar-extension.zip .
+          zip -r ../codeforces-calendar.zip . -x "*.zip"
+
+      - name: Verify zip root contains manifest
+        run: |
+          unzip -l codeforces-calendar.zip | grep "manifest.json"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: codeforces-calendar-extension
-          path: codeforces-calendar-extension.zip
+          name: codeforces-calendar
+          path: codeforces-calendar.zip
