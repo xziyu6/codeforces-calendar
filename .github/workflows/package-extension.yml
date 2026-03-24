@@ -41,7 +41,7 @@ jobs:
           unzip -l codeforces-calendar.zip | grep "manifest.json"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: codeforces-calendar
           path: codeforces-calendar.zip
