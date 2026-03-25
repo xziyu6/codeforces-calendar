@@ -1,5 +1,6 @@
 import { fetchCalendarList, type CalendarListEntry } from "../lib/google-calendar";
-import { getAuthTokenInteractive, removeCachedAuthToken } from "../lib/chrome-identity";
+import { getAuthTokenInteractive, getAuthTokenWithAccountPicker } from "../lib/chrome-identity";
+import type { SignOutResponse } from "../lib/messages";
 import { getSelectedCalendarId, getStoredCalendarSummary, setSelectedCalendar } from "../lib/storage";
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
@@ -7,8 +8,9 @@ const authSection = document.getElementById("auth-section") as HTMLDivElement;
 const calendarSection = document.getElementById("calendar-section") as HTMLDivElement;
 const calendarSelect = document.getElementById("calendar-select") as HTMLSelectElement;
 const btnSignIn = document.getElementById("btn-sign-in") as HTMLButtonElement;
+const btnSignInAgain = document.getElementById("btn-sign-in-again") as HTMLButtonElement;
+const btnSignOut = document.getElementById("btn-sign-out") as HTMLButtonElement;
 const btnSave = document.getElementById("btn-save") as HTMLButtonElement;
-const btnSwitchAccount = document.getElementById("btn-switch-account") as HTMLButtonElement;
 
 function setStatus(text: string): void {
   statusEl.textContent = text;
@@ -67,12 +69,27 @@ async function loadCalendarsAndUi(token: string): Promise<void> {
 async function onSignIn(): Promise<void> {
   try {
     setStatus("Signing in…");
-    const token = await getAuthTokenInteractive(true);
+    const token = await getAuthTokenWithAccountPicker();
     await loadCalendarsAndUi(token);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Sign-in failed.";
     setStatus(msg);
     showAuthOnly();
+  }
+}
+
+async function onSignOut(): Promise<void> {
+  try {
+    setStatus("Signing out…");
+    const res = (await chrome.runtime.sendMessage({ type: "CF_SIGN_OUT" })) as SignOutResponse;
+    if (res?.ok === true) {
+      setStatus("Signed out. Sign in again to connect Google Calendar.");
+      showAuthOnly();
+      return;
+    }
+    setStatus(res?.ok === false ? res.message : "Sign-out failed.");
+  } catch (e) {
+    setStatus(e instanceof Error ? e.message : "Sign-out failed.");
   }
 }
 
@@ -88,26 +105,12 @@ async function onSave(): Promise<void> {
   }
 }
 
-async function onSwitchAccount(): Promise<void> {
-  try {
-    setStatus("Switching account…");
-    const token = await trySilentToken();
-    if (token) {
-      await removeCachedAuthToken(token);
-    }
-    const fresh = await getAuthTokenInteractive(true);
-    await loadCalendarsAndUi(fresh);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not switch account.";
-    setStatus(msg);
-    showAuthOnly();
-  }
-}
-
 async function init(): Promise<void> {
-  btnSignIn.addEventListener("click", () => void onSignIn());
+  const signIn = (): Promise<void> => onSignIn();
+  btnSignIn.addEventListener("click", () => void signIn());
+  btnSignInAgain.addEventListener("click", () => void signIn());
+  btnSignOut.addEventListener("click", () => void onSignOut());
   btnSave.addEventListener("click", () => void onSave());
-  btnSwitchAccount.addEventListener("click", () => void onSwitchAccount());
 
   const summary = await getStoredCalendarSummary();
   if (summary) {

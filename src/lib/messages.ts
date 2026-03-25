@@ -22,6 +22,16 @@ export interface SyncContestError {
 
 export type SyncContestResponse = SyncContestOk | SyncContestError;
 
+export interface SignOutRequest {
+  type: "CF_SIGN_OUT";
+}
+
+export type SignOutResponse = { ok: true } | { ok: false; message: string };
+
+export function isSignOutRequest(value: unknown): value is SignOutRequest {
+  return typeof value === "object" && value !== null && (value as SignOutRequest).type === "CF_SIGN_OUT";
+}
+
 export function isSyncContestRequest(value: unknown): value is SyncContestRequest {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;

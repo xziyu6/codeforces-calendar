@@ -4,7 +4,11 @@
   "description": "Sync upcoming Codeforces contests to Google Calendar.",
   "version": "0.1.0",
   "permissions": ["identity", "storage"],
-  "host_permissions": ["https://codeforces.com/*", "https://www.googleapis.com/calendar/v3/*"],
+  "host_permissions": [
+    "https://codeforces.com/*",
+    "https://www.googleapis.com/calendar/v3/*",
+    "https://oauth2.googleapis.com/*"
+  ],
   "oauth2": {
     "client_id": "840627955632-vlnruj7po8srnj15j6kl6tddgoveas8g.apps.googleusercontent.com",
     "scopes": [

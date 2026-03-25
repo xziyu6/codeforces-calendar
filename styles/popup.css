@@ -65,17 +65,46 @@ button {
   padding: 6px 12px;
 }
 
-.popup__link {
-  background: none;
-  border: none;
-  padding: 4px 0;
+#btn-sign-in {
+  font-weight: 500;
+}
+
+.popup__btn-secondary {
+  background: transparent;
+  border: 1px solid #dadce0;
   color: #1a73e8;
-  text-decoration: underline;
-  font: inherit;
+}
+
+.popup__btn-secondary:hover {
+  background: rgba(26, 115, 232, 0.08);
+}
+
+.popup__btn-danger {
+  background: transparent;
+  border: 1px solid #dadce0;
+  color: #c5221f;
+}
+
+.popup__btn-danger:hover {
+  background: rgba(197, 34, 31, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
-  .popup__link {
+  .popup__btn-secondary {
+    border-color: #5f6368;
     color: #8ab4f8;
+  }
+
+  .popup__btn-secondary:hover {
+    background: rgba(138, 180, 248, 0.12);
+  }
+
+  .popup__btn-danger {
+    border-color: #5f6368;
+    color: #f28b82;
+  }
+
+  .popup__btn-danger:hover {
+    background: rgba(242, 139, 130, 0.12);
   }
 }
