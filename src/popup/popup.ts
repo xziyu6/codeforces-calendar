@@ -8,7 +8,6 @@ const authSection = document.getElementById("auth-section") as HTMLDivElement;
 const calendarSection = document.getElementById("calendar-section") as HTMLDivElement;
 const calendarSelect = document.getElementById("calendar-select") as HTMLSelectElement;
 const btnSignIn = document.getElementById("btn-sign-in") as HTMLButtonElement;
-const btnSignInAgain = document.getElementById("btn-sign-in-again") as HTMLButtonElement;
 const btnSignOut = document.getElementById("btn-sign-out") as HTMLButtonElement;
 const btnSave = document.getElementById("btn-save") as HTMLButtonElement;
 
@@ -106,9 +105,7 @@ async function onSave(): Promise<void> {
 }
 
 async function init(): Promise<void> {
-  const signIn = (): Promise<void> => onSignIn();
-  btnSignIn.addEventListener("click", () => void signIn());
-  btnSignInAgain.addEventListener("click", () => void signIn());
+  btnSignIn.addEventListener("click", () => void onSignIn());
   btnSignOut.addEventListener("click", () => void onSignOut());
   btnSave.addEventListener("click", () => void onSave());
 
