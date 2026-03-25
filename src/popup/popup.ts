@@ -9,7 +9,6 @@ const calendarSection = document.getElementById("calendar-section") as HTMLDivEl
 const calendarSelect = document.getElementById("calendar-select") as HTMLSelectElement;
 const btnSignIn = document.getElementById("btn-sign-in") as HTMLButtonElement;
 const btnSignOut = document.getElementById("btn-sign-out") as HTMLButtonElement;
-const btnSave = document.getElementById("btn-save") as HTMLButtonElement;
 
 function setStatus(text: string): void {
   statusEl.textContent = text;
@@ -61,7 +60,7 @@ async function loadCalendarsAndUi(token: string): Promise<void> {
   }
   calendarSelect.value = match ? storedId : firstEntry.id;
   const summary = await getStoredCalendarSummary();
-  setStatus(summary ? `Saved: ${summary}` : "Choose a calendar and click Save.");
+  setStatus(summary ? `Saved: ${summary}` : "Choose a calendar.");
   showCalendarUi();
 }
 
@@ -82,7 +81,7 @@ async function onSignOut(): Promise<void> {
     setStatus("Signing out…");
     const res = (await chrome.runtime.sendMessage({ type: "CF_SIGN_OUT" })) as SignOutResponse;
     if (res?.ok === true) {
-      setStatus("Signed out. Sign in again to connect Google Calendar.");
+      setStatus("Signed out. Sign in to choose a calendar.");
       showAuthOnly();
       return;
     }
@@ -92,7 +91,7 @@ async function onSignOut(): Promise<void> {
   }
 }
 
-async function onSave(): Promise<void> {
+async function persistCalendarSelection(): Promise<void> {
   const id = calendarSelect.value;
   const opt = calendarSelect.selectedOptions[0];
   const summary = opt?.textContent?.replace(/\s*\(primary\)\s*$/, "").trim() ?? id;
@@ -100,14 +99,14 @@ async function onSave(): Promise<void> {
     await setSelectedCalendar(id, summary);
     setStatus(`Saved: ${summary}`);
   } catch {
-    setStatus("Could not save settings.");
+    setStatus("Could not save calendar choice.");
   }
 }
 
 async function init(): Promise<void> {
   btnSignIn.addEventListener("click", () => void onSignIn());
   btnSignOut.addEventListener("click", () => void onSignOut());
-  btnSave.addEventListener("click", () => void onSave());
+  calendarSelect.addEventListener("change", () => void persistCalendarSelection());
 
   const summary = await getStoredCalendarSummary();
   if (summary) {

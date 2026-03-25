@@ -1,6 +1,6 @@
 import { createOrUpdateCalendarEvent } from "../lib/google-calendar";
 import { getFreshAuthToken, signOutFromGoogle } from "../lib/chrome-identity";
-import { getSelectedCalendarId } from "../lib/storage";
+import { clearSelectedCalendar, getSelectedCalendarId } from "../lib/storage";
 import {
   isSignOutRequest,
   isSyncContestRequest,
@@ -18,6 +18,7 @@ chrome.runtime.onMessage.addListener(
       (async () => {
         try {
           await signOutFromGoogle();
+          await clearSelectedCalendar();
           sendResponse({ ok: true });
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Sign-out failed.";
