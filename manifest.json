@@ -7,7 +7,14 @@
   "host_permissions": ["https://codeforces.com/*", "https://www.googleapis.com/calendar/v3/*"],
   "oauth2": {
     "client_id": "840627955632-vlnruj7po8srnj15j6kl6tddgoveas8g.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/calendar.events"]
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
+    ]
+  },
+  "action": {
+    "default_title": "Codeforces Calendar",
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "assets/serviceWorker.js",

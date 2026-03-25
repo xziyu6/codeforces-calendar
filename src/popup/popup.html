@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codeforces Calendar</title>
+    <link rel="stylesheet" href="styles/popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <h1 class="popup__title">Google Calendar</h1>
+      <p id="status" class="popup__status" aria-live="polite"></p>
+      <div id="auth-section" class="popup__section" hidden>
+        <button type="button" id="btn-sign-in">Sign in with Google</button>
+      </div>
+      <div id="calendar-section" class="popup__section" hidden>
+        <label for="calendar-select">Target calendar</label>
+        <select id="calendar-select" aria-label="Target calendar"></select>
+        <div class="popup__actions">
+          <button type="button" id="btn-save">Save</button>
+          <button type="button" id="btn-switch-account" class="popup__link">Use different account</button>
+        </div>
+      </div>
+    </main>
+    <script src="assets/popup.js" type="module"></script>
+  </body>
+</html>

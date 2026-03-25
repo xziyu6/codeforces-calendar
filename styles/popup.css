@@ -1,0 +1,81 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, Segoe UI, Roboto, sans-serif;
+  font-size: 13px;
+}
+
+body {
+  margin: 0;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+.popup {
+  padding: 12px 14px 14px;
+}
+
+.popup__title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.popup__status {
+  margin: 0 0 10px;
+  min-height: 1.2em;
+  color: #555;
+}
+
+@media (prefers-color-scheme: dark) {
+  .popup__status {
+    color: #bbb;
+  }
+}
+
+.popup__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popup__section[hidden] {
+  display: none;
+}
+
+.popup__section label {
+  font-weight: 500;
+}
+
+#calendar-select {
+  width: 100%;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+.popup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+button {
+  cursor: pointer;
+  padding: 6px 12px;
+}
+
+.popup__link {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: #1a73e8;
+  text-decoration: underline;
+  font: inherit;
+}
+
+@media (prefers-color-scheme: dark) {
+  .popup__link {
+    color: #8ab4f8;
+  }
+}

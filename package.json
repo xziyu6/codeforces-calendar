@@ -8,7 +8,8 @@
     "dev:worker": "vite build --mode worker --watch",
     "build:content": "vite build --mode content",
     "build:worker": "vite build --mode worker",
-    "build": "npm run build:content && npm run build:worker",
+    "build:popup": "vite build --mode popup",
+    "build": "npm run build:content && npm run build:worker && npm run build:popup",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

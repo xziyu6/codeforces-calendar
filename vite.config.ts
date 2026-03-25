@@ -17,7 +17,47 @@ const copyStaticFilesPlugin: Plugin = {
   }
 };
 
+const copyPopupStaticFilesPlugin: Plugin = {
+  name: "copy-popup-static-files",
+  generateBundle() {
+    this.emitFile({
+      type: "asset",
+      fileName: "popup.html",
+      source: readFileSync("src/popup/popup.html", "utf8")
+    });
+    this.emitFile({
+      type: "asset",
+      fileName: "styles/popup.css",
+      source: readFileSync("styles/popup.css", "utf8")
+    });
+  }
+};
+
 export default defineConfig(({ mode }) => {
+  if (mode === "popup") {
+    const config: UserConfig = {
+      plugins: [copyPopupStaticFilesPlugin],
+      build: {
+        emptyOutDir: false,
+        outDir: "dist",
+        sourcemap: true,
+        rollupOptions: {
+          input: {
+            popup: "src/popup/popup.ts"
+          },
+          output: {
+            format: "es",
+            entryFileNames: "assets/popup.js",
+            inlineDynamicImports: true,
+            chunkFileNames: "assets/[name]-[hash].js",
+            assetFileNames: "assets/[name].[ext]"
+          }
+        }
+      }
+    };
+    return config;
+  }
+
   if (mode === "content") {
     const config: UserConfig = {
       plugins: [copyStaticFilesPlugin],

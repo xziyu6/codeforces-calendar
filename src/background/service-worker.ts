@@ -1,33 +1,7 @@
 import { createOrUpdateCalendarEvent } from "../lib/google-calendar";
+import { getFreshAuthToken } from "../lib/chrome-identity";
+import { getSelectedCalendarId } from "../lib/storage";
 import { isSyncContestRequest, type SyncContestResponse } from "../lib/messages";
-
-async function getTokenInteractive(interactive: boolean): Promise<string> {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (result) => {
-      const token = typeof result === "string" ? result : result?.token;
-      if (chrome.runtime.lastError || !token) {
-        reject(new Error(chrome.runtime.lastError?.message ?? "Failed to get auth token"));
-        return;
-      }
-      resolve(token);
-    });
-  });
-}
-
-async function getFreshToken(): Promise<string> {
-  try {
-    return await getTokenInteractive(true);
-  } catch {
-    // If cached auth state is stale, clear token once and force a fresh interactive flow.
-    const cachedToken = await getTokenInteractive(false).catch(() => null);
-    if (cachedToken) {
-      await new Promise<void>((resolve) => {
-        chrome.identity.removeCachedAuthToken({ token: cachedToken }, () => resolve());
-      });
-    }
-    return getTokenInteractive(true);
-  }
-}
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (response: SyncContestResponse) => void) => {
   if (!isSyncContestRequest(message)) {
@@ -37,8 +11,9 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (
 
   (async () => {
     try {
-      const token = await getFreshToken();
-      const action = await createOrUpdateCalendarEvent(message, token);
+      const token = await getFreshAuthToken();
+      const calendarId = await getSelectedCalendarId();
+      const action = await createOrUpdateCalendarEvent(message, token, calendarId);
       sendResponse({ ok: true, action });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown background error";

@@ -8,6 +8,23 @@ interface GoogleListResponse {
   items?: GoogleEvent[];
 }
 
+interface GoogleCalendarListItem {
+  id: string;
+  summary?: string;
+  summaryOverride?: string;
+  primary?: boolean;
+}
+
+interface GoogleCalendarListResponse {
+  items?: GoogleCalendarListItem[];
+}
+
+export interface CalendarListEntry {
+  id: string;
+  summary: string;
+  primary?: boolean;
+}
+
 interface GoogleEventUpsertBody {
   summary: string;
   description: string;
@@ -53,7 +70,15 @@ async function googleFetch<T>(path: string, token: string, init?: RequestInit): 
   return (await response.json()) as T;
 }
 
-async function findExistingEvent(request: SyncContestRequest, token: string): Promise<string | null> {
+function calendarEventsBasePath(calendarId: string): string {
+  return `/calendars/${encodeURIComponent(calendarId)}/events`;
+}
+
+async function findExistingEvent(
+  request: SyncContestRequest,
+  token: string,
+  calendarId: string
+): Promise<string | null> {
   const params = new URLSearchParams({
     privateExtendedProperty: `cfContestId=${request.contestId}`,
     singleEvents: "true",
@@ -61,27 +86,48 @@ async function findExistingEvent(request: SyncContestRequest, token: string): Pr
     timeMin: request.startUtcIso,
     timeMax: request.endUtcIso
   });
-  const data = await googleFetch<GoogleListResponse>(`/calendars/primary/events?${params.toString()}`, token);
+  const data = await googleFetch<GoogleListResponse>(
+    `${calendarEventsBasePath(calendarId)}?${params.toString()}`,
+    token
+  );
   return data.items?.[0]?.id ?? null;
+}
+
+export async function fetchCalendarList(token: string): Promise<CalendarListEntry[]> {
+  const params = new URLSearchParams({ minAccessRole: "writer" });
+  const data = await googleFetch<GoogleCalendarListResponse>(`/users/me/calendarList?${params.toString()}`, token);
+  const items = data.items ?? [];
+  const mapped: CalendarListEntry[] = items.map((item) => ({
+    id: item.id,
+    summary: item.summaryOverride?.trim() || item.summary?.trim() || item.id,
+    primary: item.primary
+  }));
+  mapped.sort((a, b) => {
+    if (a.primary && !b.primary) return -1;
+    if (!a.primary && b.primary) return 1;
+    return a.summary.localeCompare(b.summary, undefined, { sensitivity: "base" });
+  });
+  return mapped;
 }
 
 export async function createOrUpdateCalendarEvent(
   request: SyncContestRequest,
-  token: string
+  token: string,
+  calendarId: string
 ): Promise<"created" | "updated"> {
-  // Idempotency key: if an event already carries this contest ID, update it instead of creating a duplicate.
-  const existingEventId = await findExistingEvent(request, token);
+  const base = calendarEventsBasePath(calendarId);
+  const existingEventId = await findExistingEvent(request, token, calendarId);
   const body = JSON.stringify(eventBodyFromRequest(request));
 
   if (existingEventId) {
-    await googleFetch(`/calendars/primary/events/${encodeURIComponent(existingEventId)}`, token, {
+    await googleFetch(`${base}/${encodeURIComponent(existingEventId)}`, token, {
       method: "PATCH",
       body
     });
     return "updated";
   }
 
-  await googleFetch("/calendars/primary/events", token, {
+  await googleFetch(base, token, {
     method: "POST",
     body
   });
