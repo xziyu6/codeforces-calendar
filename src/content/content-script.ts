@@ -90,36 +90,34 @@ async function injectButtons(): Promise<void> {
   
     const button = buildSyncButton(async () => {
       setRowStatus(row, "syncing", "syncing");
-      let contest: CfContest | undefined;
+
+      let title: string;
+      let range: ReturnType<typeof utcRangeFromContest> | null;
+
       try {
-        // API lookup happens only on click; UI injection does not depend on API availability.
-        const contests = await fetchContestList();
-        contest = buildUpcomingContestMap(contests).get(contestId);
+        const contest = buildUpcomingContestMap(await fetchContestList()).get(contestId);
+        if (!contest) throw new Error("contest missing from API response");
+        title = contest.name;
+        range = utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds);
       } catch {
-        // API is best-effort on click; DOM fallback remains available.
+        title = row.querySelector("td.left")?.textContent?.trim() ?? "Codeforces Contest";
+        const startText = row.querySelector("td:nth-child(3)")?.textContent ?? "";
+        const durationText = row.querySelector("td:nth-child(4)")?.textContent ?? "";
+        range = utcRangeFromDom(startText, durationText);
       }
 
-      const domStartText = row.querySelector("td:nth-child(3)")?.textContent ?? "";
-      const domDurationText = row.querySelector("td:nth-child(4)")?.textContent ?? "";
-      const domTitle = row.querySelector("td.left")?.textContent?.trim() ?? "Codeforces Contest";
-      const fromApi =
-        contest?.startTimeSeconds !== undefined
-          ? utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds)
-          : null;
-      const fromDom = utcRangeFromDom(domStartText, domDurationText);
-      // Prefer canonical API times when present, otherwise parse times from the visible row.
-      const range = fromApi ?? fromDom;
       if (!range) {
         setRowStatus(row, "error", "time parse failed");
         return;
       }
+
       const request: SyncContestRequest = {
         type: "CF_SYNC_CONTEST",
         contestId,
-        title: contest?.name ?? domTitle,
+        title,
         startUtcIso: range.startUtcIso,
         endUtcIso: range.endUtcIso,
-        sourceUrl: `https://codeforces.com/contest/${contest?.id ?? contestId}`
+        sourceUrl: `https://codeforces.com/contest/${contestId}`
       };
       const response = await sendSyncRequest(request);
       if (response.ok) {

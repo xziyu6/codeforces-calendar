@@ -7,6 +7,17 @@ dayjs.extend(customParseFormat);
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+function parseUtcOffsetMinutes(input: string): number | null {
+  // Codeforces fixed time appears like: "UTC-7" in a <sup> element.
+  // We parse it as a numeric offset in minutes.
+  const match = input.match(/UTC\s*([+-])\s*(\d{1,2})/i);
+  if (!match) return null;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  if (Number.isNaN(hours)) return null;
+  return sign * hours * 60;
+}
+
 export function utcIsoFromUnixSeconds(seconds: number): string {
   return dayjs.unix(seconds).utc().toISOString();
 }
@@ -33,11 +44,22 @@ export function utcRangeFromDom(startText: string, durationText: string): {
   startUtcIso: string;
   endUtcIso: string;
 } | null {
-  const parsed = dayjs(startText.trim(), ["MMM/DD/YYYY HH:mm", "MMM/D/YYYY HH:mm"], true);
+  const offsetMinutes = parseUtcOffsetMinutes(startText);
+  const startWithoutOffset = startText.replace(/UTC\s*([+-])\s*(\d{1,2})/i, "").trim();
+
+  const parsed = dayjs(startWithoutOffset, ["MMM/DD/YYYY HH:mm", "MMM/D/YYYY HH:mm"], true);
   if (!parsed.isValid()) return null;
   const durationSeconds = parseDurationToSeconds(durationText);
   if (durationSeconds === null) return null;
-  const startUtcIso = parsed.utc().toISOString();
-  const endUtcIso = parsed.add(durationSeconds, "second").utc().toISOString();
-  return { startUtcIso, endUtcIso };
+
+  // Interpret the DOM's date/time as being in the offset shown by the <sup>.
+  if (offsetMinutes === null) {
+    const startUtc = parsed.utc();
+    const endUtc = startUtc.add(durationSeconds, "second");
+    return { startUtcIso: startUtc.toISOString(), endUtcIso: endUtc.toISOString() };
+  }
+
+  const startUtc = parsed.utcOffset(offsetMinutes, true).utc();
+  const endUtc = startUtc.add(durationSeconds, "second");
+  return { startUtcIso: startUtc.toISOString(), endUtcIso: endUtc.toISOString() };
 }

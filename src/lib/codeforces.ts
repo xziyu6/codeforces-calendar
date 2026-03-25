@@ -3,7 +3,7 @@ export interface CfContest {
   name: string;
   phase: string;
   durationSeconds: number;
-  startTimeSeconds?: number;
+  startTimeSeconds: number;
   type?: string;
 }
 
