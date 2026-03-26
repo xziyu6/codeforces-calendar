@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "permissions": ["identity", "storage"],
   "host_permissions": [
-    "https://codeforces.com/*",
+    "https://codeforces.com/contests",
     "https://www.googleapis.com/calendar/v3/*",
     "https://oauth2.googleapis.com/*"
   ],
