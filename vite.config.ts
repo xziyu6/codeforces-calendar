@@ -1,5 +1,7 @@
 import { defineConfig, type Plugin, type UserConfig } from "vite";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+
+const ICON_SIZES = [16, 48, 128] as const;
 
 const copyStaticFilesPlugin: Plugin = {
   name: "copy-extension-static-files",
@@ -14,6 +16,12 @@ const copyStaticFilesPlugin: Plugin = {
       fileName: "styles/content.css",
       source: readFileSync("styles/content.css", "utf8")
     });
+    for (const size of ICON_SIZES) {
+      const path = `icons/icon${size}.png`;
+      if (existsSync(path)) {
+        this.emitFile({ type: "asset", fileName: path, source: readFileSync(path) });
+      }
+    }
   }
 };
 
