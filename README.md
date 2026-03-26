@@ -10,6 +10,16 @@ It injects `Sync` buttons into the Codeforces upcoming contests table. Clicking 
 2. Open the Codeforces contests page and click `Sync` on an upcoming contest row.
 3. You can click `Sync` again later to update the same event.
 
+## If things break
+
+If you see a red status next to a contest row (for example `error` or `created (fallback)` / `updated (fallback)`), or encounter any bugs, please report to me in [Github Issues](https://github.com/xziyu6/codeforces-calendar/issues/new).
+
+Include:
+- a description of how to replicate
+- screenshot of the whole page
+- your full page URL
+- extension version (and optionally browser version)
+
 ## Permissions
 - Uses Google sign-in and Calendar access to create/update events.
 - Reads Codeforces upcoming contest pages and Codeforces API to get contest data.
