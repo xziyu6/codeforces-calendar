@@ -71,7 +71,7 @@ function calendarEventsBasePath(calendarId: string): string {
 }
 
 function contestEventId(contestId: string): string {
-  return `cfcontest${contestId}@codeforces-calendar`;
+  return `cfcontest${contestId}codeforcescalendar`;
 }
 
 export async function fetchCalendarList(token: string): Promise<CalendarListEntry[]> {
