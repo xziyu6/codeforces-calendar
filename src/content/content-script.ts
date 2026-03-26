@@ -1,4 +1,11 @@
-import { isSyncContestRequest, type RowSyncState, type SyncContestRequest, type SyncContestResponse } from "../lib/messages";
+import {
+  isSyncContestFallbackRequest,
+  isSyncContestRequest,
+  type RowSyncState,
+  type SyncContestFallbackRequest,
+  type SyncContestRequest,
+  type SyncContestResponse
+} from "../lib/messages";
 import { utcRangeFromDom, utcRangeFromTimeanddateHref } from "../lib/time";
 
 const INJECTED_ATTR = "data-cf-sync-injected";
@@ -34,8 +41,8 @@ function ensureActionCell(row: HTMLTableRowElement): HTMLTableCellElement {
   return cell;
 }
 
-async function sendSyncRequest(request: SyncContestRequest): Promise<SyncContestResponse> {
-  if (!isSyncContestRequest(request)) {
+async function sendSyncRequest(request: SyncContestRequest | SyncContestFallbackRequest): Promise<SyncContestResponse> {
+  if (!isSyncContestRequest(request) && !isSyncContestFallbackRequest(request)) {
     return { ok: false, code: "BAD_REQUEST", message: "Client-side request validation failed." };
   }
 
@@ -104,7 +111,23 @@ async function injectButtons(): Promise<void> {
       range = utcRangeFromTimeanddateHref(href, durationText) ?? utcRangeFromDom(startText, durationText);
 
       if (!range) {
-        setRowStatus(row, "error", "time parse failed");
+        const fallbackRequest: SyncContestFallbackRequest = {
+          type: "CF_SYNC_CONTEST_FALLBACK",
+          contestId,
+          title,
+          sourceUrl: `https://codeforces.com/contest/${contestId}`
+        };
+
+        const response = await sendSyncRequest(fallbackRequest);
+        if (response.ok) {
+          if (response.warning) {
+            setRowStatus(row, "error", `${response.action} (fallback)`);
+          } else {
+            setRowStatus(row, "synced", response.action);
+          }
+        } else {
+          setRowStatus(row, "error", response.message);
+        }
         return;
       }
 
@@ -118,7 +141,11 @@ async function injectButtons(): Promise<void> {
       };
       const response = await sendSyncRequest(request);
       if (response.ok) {
-        setRowStatus(row, "synced", response.action);
+        if (response.warning) {
+          setRowStatus(row, "error", `${response.action} (fallback)`);
+        } else {
+          setRowStatus(row, "synced", response.action);
+        }
       } else {
         setRowStatus(row, "error", response.message);
       }

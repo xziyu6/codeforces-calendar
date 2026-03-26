@@ -6,6 +6,7 @@ import { utcRangeFromContest } from "../lib/time";
 import {
   isSignOutRequest,
   isSyncContestRequest,
+  isSyncContestFallbackRequest,
   type SignOutResponse,
   type SyncContestResponse
 } from "../lib/messages";
@@ -25,6 +26,35 @@ chrome.runtime.onMessage.addListener(
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Sign-out failed.";
           sendResponse({ ok: false, message: msg });
+        }
+      })();
+      return true;
+    }
+
+    if (isSyncContestFallbackRequest(message)) {
+      (async () => {
+        try {
+          const [token, calendarId] = await Promise.all([getFreshAuthToken(), getSelectedCalendarId()]);
+          const contest = await fetchContestById(message.contestId);
+          if (!contest) throw new Error("contest missing from API response");
+
+          const range = utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds);
+
+          const request = {
+            type: "CF_SYNC_CONTEST" as const,
+            contestId: message.contestId,
+            title: message.title,
+            startUtcIso: range.startUtcIso,
+            endUtcIso: range.endUtcIso,
+            sourceUrl: message.sourceUrl
+          };
+
+          const action = await createOrUpdateCalendarEvent(request, token, calendarId);
+          sendResponse({ ok: true, action, warning: "fallback" });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "Unknown background error";
+          const code = msg.includes("auth") || msg.includes("token") ? "AUTH" : "API";
+          sendResponse({ ok: false, code, message: msg });
         }
       })();
       return true;

@@ -9,9 +9,17 @@ export interface SyncContestRequest {
   sourceUrl: string;
 }
 
+export interface SyncContestFallbackRequest {
+  type: "CF_SYNC_CONTEST_FALLBACK";
+  contestId: string;
+  title: string;
+  sourceUrl: string;
+}
+
 export interface SyncContestOk {
   ok: true;
   action: "created" | "updated";
+  warning?: string;
 }
 
 export interface SyncContestError {
@@ -41,6 +49,17 @@ export function isSyncContestRequest(value: unknown): value is SyncContestReques
     typeof candidate.title === "string" &&
     typeof candidate.startUtcIso === "string" &&
     typeof candidate.endUtcIso === "string" &&
+    typeof candidate.sourceUrl === "string"
+  );
+}
+
+export function isSyncContestFallbackRequest(value: unknown): value is SyncContestFallbackRequest {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.type === "CF_SYNC_CONTEST_FALLBACK" &&
+    typeof candidate.contestId === "string" &&
+    typeof candidate.title === "string" &&
     typeof candidate.sourceUrl === "string"
   );
 }
