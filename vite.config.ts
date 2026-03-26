@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
       build: {
         emptyOutDir: false,
         outDir: "dist",
-        sourcemap: true,
+        sourcemap: false,
         rollupOptions: {
           input: {
             popup: "src/popup/popup.ts"
@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
       build: {
         emptyOutDir: true,
         outDir: "dist",
-        sourcemap: true,
+        sourcemap: false,
         rollupOptions: {
           input: {
             contentScript: "src/content/content-script.ts"
@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
     build: {
       emptyOutDir: false,
       outDir: "dist",
-      sourcemap: true,
+      sourcemap: false,
       rollupOptions: {
         input: {
           serviceWorker: "src/background/service-worker.ts"
