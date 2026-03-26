@@ -1,12 +1,6 @@
 import type { SyncContestRequest } from "./messages";
 
-interface GoogleEvent {
-  id: string;
-}
 
-interface GoogleListResponse {
-  items?: GoogleEvent[];
-}
 
 interface GoogleCalendarListItem {
   id: string;
@@ -26,6 +20,7 @@ export interface CalendarListEntry {
 }
 
 interface GoogleEventUpsertBody {
+  status: "confirmed";
   summary: string;
   description: string;
   start: { dateTime: string };
@@ -36,6 +31,7 @@ interface GoogleEventUpsertBody {
 
 function eventBodyFromRequest(request: SyncContestRequest): GoogleEventUpsertBody {
   return {
+    status: "confirmed",
     summary: request.title,
     description: `${request.sourceUrl}\n\nSynced from Codeforces contest ${request.contestId}.`,
     start: { dateTime: request.startUtcIso },
@@ -74,23 +70,8 @@ function calendarEventsBasePath(calendarId: string): string {
   return `/calendars/${encodeURIComponent(calendarId)}/events`;
 }
 
-async function findExistingEvent(
-  request: SyncContestRequest,
-  token: string,
-  calendarId: string
-): Promise<string | null> {
-  const params = new URLSearchParams({
-    privateExtendedProperty: `cfContestId=${request.contestId}`,
-    singleEvents: "true",
-    maxResults: "1",
-    timeMin: request.startUtcIso,
-    timeMax: request.endUtcIso
-  });
-  const data = await googleFetch<GoogleListResponse>(
-    `${calendarEventsBasePath(calendarId)}?${params.toString()}`,
-    token
-  );
-  return data.items?.[0]?.id ?? null;
+function contestEventId(contestId: string): string {
+  return `cfcontest${contestId}`;
 }
 
 export async function fetchCalendarList(token: string): Promise<CalendarListEntry[]> {
@@ -116,20 +97,25 @@ export async function createOrUpdateCalendarEvent(
   calendarId: string
 ): Promise<"created" | "updated"> {
   const base = calendarEventsBasePath(calendarId);
-  const existingEventId = await findExistingEvent(request, token, calendarId);
+  const eventId = contestEventId(request.contestId);
   const body = JSON.stringify(eventBodyFromRequest(request));
 
-  if (existingEventId) {
-    await googleFetch(`${base}/${encodeURIComponent(existingEventId)}`, token, {
-      method: "PATCH",
-      body
-    });
-    return "updated";
-  }
-
-  await googleFetch(base, token, {
-    method: "POST",
+  const patchResponse = await fetch(`https://www.googleapis.com/calendar/v3${base}/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body
   });
-  return "created";
+
+  if (patchResponse.ok) return "updated";
+
+  if (patchResponse.status === 404) {
+    await googleFetch(base, token, {
+      method: "POST",
+      body: JSON.stringify({ ...eventBodyFromRequest(request), id: eventId })
+    });
+    return "created";
+  }
+
+  const text = await patchResponse.text();
+  throw new Error(`Google API failed (${patchResponse.status}): ${text}`);
 }

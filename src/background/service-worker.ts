@@ -28,24 +28,23 @@ chrome.runtime.onMessage.addListener(
       return true;
     }
 
-    if (!isSyncContestRequest(message)) {
-      sendResponse({ ok: false, code: "BAD_REQUEST", message: "Invalid sync request payload." });
-      return false;
+    if (isSyncContestRequest(message)) {
+      (async () => {
+        try {
+          const token = await getFreshAuthToken();
+          const calendarId = await getSelectedCalendarId();
+          const action = await createOrUpdateCalendarEvent(message, token, calendarId);
+          sendResponse({ ok: true, action });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "Unknown background error";
+          const code = msg.includes("auth") || msg.includes("token") ? "AUTH" : "API";
+          sendResponse({ ok: false, code, message: msg });
+        }
+      })();
+      return true;
     }
 
-    (async () => {
-      try {
-        const token = await getFreshAuthToken();
-        const calendarId = await getSelectedCalendarId();
-        const action = await createOrUpdateCalendarEvent(message, token, calendarId);
-        sendResponse({ ok: true, action });
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : "Unknown background error";
-        const code = msg.includes("auth") || msg.includes("token") ? "AUTH" : "API";
-        sendResponse({ ok: false, code, message: msg });
-      }
-    })();
-
-    return true;
+    sendResponse({ ok: false, code: "BAD_REQUEST", message: "Invalid sync request payload." });
+    return false;
   }
 );

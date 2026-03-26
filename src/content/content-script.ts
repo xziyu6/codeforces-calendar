@@ -89,13 +89,18 @@ async function injectButtons(): Promise<void> {
     actionCell.appendChild(statusEl);
   
     const button = buildSyncButton(async () => {
+      performance.mark("syncButtonClickStart");
       setRowStatus(row, "syncing", "syncing");
 
       let title: string;
       let range: ReturnType<typeof utcRangeFromContest> | null;
 
       try {
+        performance.mark("fetchContestListStart");
         const contest = buildUpcomingContestMap(await fetchContestList()).get(contestId);
+        performance.mark("fetchContestListEnd");
+        performance.measure("fetchContestList", "fetchContestListStart", "fetchContestListEnd");
+        console.log("fetchContestList", performance.getEntriesByType("measure").find((entry) => entry.name === "fetchContestList")?.duration);
         if (!contest) throw new Error("contest missing from API response");
         title = contest.name;
         range = utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds);
@@ -119,12 +124,19 @@ async function injectButtons(): Promise<void> {
         endUtcIso: range.endUtcIso,
         sourceUrl: `https://codeforces.com/contest/${contestId}`
       };
+      performance.mark("sendSyncRequestStart");
       const response = await sendSyncRequest(request);
+      performance.mark("sendSyncRequestEnd");
+      performance.measure("sendSyncRequest", "sendSyncRequestStart", "sendSyncRequestEnd");
+      console.log("sendSyncRequest", performance.getEntriesByType("measure").find((entry) => entry.name === "sendSyncRequest")?.duration);
       if (response.ok) {
         setRowStatus(row, "synced", response.action);
       } else {
         setRowStatus(row, "error", response.message);
       }
+      performance.mark("syncButtonClickEnd");
+      performance.measure("syncButtonClick", "syncButtonClickStart", "syncButtonClickEnd");
+      console.log("syncButtonClick", performance.getEntriesByType("measure").find((entry) => entry.name === "syncButtonClick")?.duration);
     });
 
     actionCell.appendChild(button);
