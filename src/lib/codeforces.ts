@@ -13,7 +13,7 @@ interface CfContestListResponse {
 }
 
 export async function fetchContestList(): Promise<CfContest[]> {
-  const response = await fetch("https://codeforces.com/api/contest.list");
+  const response = await fetch("https://codeforces.com/api/contest.list?gym=false");
   if (!response.ok) {
     throw new Error(`Codeforces API failed: ${response.status}`);
   }
@@ -26,12 +26,7 @@ export async function fetchContestList(): Promise<CfContest[]> {
   return data.result;
 }
 
-export function buildUpcomingContestMap(contests: CfContest[]): Map<string, CfContest> {
-  const map = new Map<string, CfContest>();
-  for (const contest of contests) {
-    if (contest.phase === "BEFORE") {
-      map.set(String(contest.id), contest);
-    }
-  }
-  return map;
+export async function fetchContestById(contestId: string): Promise<CfContest | null> {
+  const contests = await fetchContestList();
+  return contests.find((contest) => String(contest.id) === contestId) ?? null;
 }

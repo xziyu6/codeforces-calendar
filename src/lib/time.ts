@@ -47,7 +47,7 @@ export function utcRangeFromDom(startText: string, durationText: string): {
   const offsetMinutes = parseUtcOffsetMinutes(startText);
   const startWithoutOffset = startText.replace(/UTC\s*([+-])\s*(\d{1,2})/i, "").trim();
 
-  const parsed = dayjs(startWithoutOffset, ["MMM/DD/YYYY HH:mm", "MMM/D/YYYY HH:mm"], true);
+  const parsed = dayjs(startWithoutOffset, ["MMM/DD/YYYY HH:mm", "MMM/D/YYYY HH:mm", "DD.MM.YYYY HH:mm"], true);
   if (!parsed.isValid()) return null;
   const durationSeconds = parseDurationToSeconds(durationText);
   if (durationSeconds === null) return null;
@@ -60,6 +60,44 @@ export function utcRangeFromDom(startText: string, durationText: string): {
   }
 
   const startUtc = parsed.utcOffset(offsetMinutes, true).utc();
+  const endUtc = startUtc.add(durationSeconds, "second");
+  return { startUtcIso: startUtc.toISOString(), endUtcIso: endUtc.toISOString() };
+}
+
+export function utcRangeFromTimeanddateHref(href: string, durationText: string): {
+  startUtcIso: string;
+  endUtcIso: string;
+} | null {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+
+  if (!url.hostname.includes("timeanddate.com")) return null;
+
+  // Example query:
+  // fixedtime.html?day=28&month=3&year=2026&hour=17&min=35&sec=0&p1=166
+  const day = Number(url.searchParams.get("day"));
+  const month = Number(url.searchParams.get("month"));
+  const year = Number(url.searchParams.get("year"));
+  const hour = Number(url.searchParams.get("hour"));
+  const minute = Number(url.searchParams.get("min"));
+  const second = Number(url.searchParams.get("sec") ?? "0");
+
+  if ([day, month, year, hour, minute, second].some((n) => Number.isNaN(n))) return null;
+
+  const durationSeconds = parseDurationToSeconds(durationText);
+  if (durationSeconds === null) return null;
+
+  // Based on your observation, this link's timezone is consistently Moscow.
+  const startUtc = dayjs.tz(
+    `${year}-${month}-${day} ${hour}:${minute}:${second}`,
+    "YYYY-M-D H:m:s",
+    "Europe/Moscow"
+  ).utc();
+
   const endUtc = startUtc.add(durationSeconds, "second");
   return { startUtcIso: startUtc.toISOString(), endUtcIso: endUtc.toISOString() };
 }

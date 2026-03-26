@@ -71,7 +71,7 @@ function calendarEventsBasePath(calendarId: string): string {
 }
 
 function contestEventId(contestId: string): string {
-  return `cfcontest${contestId}`;
+  return `cfcontest${contestId}@codeforces-calendar`;
 }
 
 export async function fetchCalendarList(token: string): Promise<CalendarListEntry[]> {
@@ -98,24 +98,35 @@ export async function createOrUpdateCalendarEvent(
 ): Promise<"created" | "updated"> {
   const base = calendarEventsBasePath(calendarId);
   const eventId = contestEventId(request.contestId);
-  const body = JSON.stringify(eventBodyFromRequest(request));
+  const body = JSON.stringify({ ...eventBodyFromRequest(request), id: eventId });
 
-  const patchResponse = await fetch(`https://www.googleapis.com/calendar/v3${base}/${encodeURIComponent(eventId)}`, {
-    method: "PATCH",
+  // POST-first: create with deterministic id; if already exists, fall back to PATCH.
+  const postResponse = await fetch(`https://www.googleapis.com/calendar/v3${base}`, {
+    method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body
   });
 
-  if (patchResponse.ok) return "updated";
+  if (postResponse.ok) return "created";
 
-  if (patchResponse.status === 404) {
-    await googleFetch(base, token, {
-      method: "POST",
-      body: JSON.stringify({ ...eventBodyFromRequest(request), id: eventId })
-    });
-    return "created";
+  if (postResponse.status === 409) {
+    await patchCalendarEvent(request, token, calendarId);
+    return "updated";
   }
 
-  const text = await patchResponse.text();
-  throw new Error(`Google API failed (${patchResponse.status}): ${text}`);
+  const text = await postResponse.text();
+  throw new Error(`Google API failed (${postResponse.status}): ${text}`);
+}
+
+export async function patchCalendarEvent(
+  request: SyncContestRequest,
+  token: string,
+  calendarId: string
+): Promise<void> {
+  const base = calendarEventsBasePath(calendarId);
+  const eventId = contestEventId(request.contestId);
+  await googleFetch(`${base}/${encodeURIComponent(eventId)}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(eventBodyFromRequest(request))
+  });
 }
