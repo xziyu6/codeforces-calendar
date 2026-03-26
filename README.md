@@ -16,27 +16,27 @@ It injects `Sync` buttons into the Codeforces upcoming contests table. Clicking 
 
 ---
 
-### How it works
+## How it works
 
 - **Content script**: finds the upcoming table and injects `Sync` controls.
 - **Service worker**: handles OAuth, sign-out/revoke flow, and Google Calendar API calls.
 - **Google Calendar helper**: lists writable calendars and performs create-or-update event upserts.
 
-### Local development
+## Local development
 
-#### Prerequisites
+### Prerequisites
 
 - Node.js (18+ recommended)
 - npm
 - Chrome/Chromium
 
-#### Install
+### Install
 
 ```bash
 npm install
 ```
 
-#### Build
+### Build
 
 ```bash
 npm run typecheck
@@ -45,14 +45,14 @@ npm run build
 
 Build output is written to `dist/`.
 
-#### Load unpacked extension
+### Load unpacked extension
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select the repository `dist/` folder.
 
-### Google OAuth setup (for your own build)
+## Google OAuth setup (for your own build)
 
 1. Create an OAuth client in Google Cloud for a Chrome extension.
 2. Ensure the OAuth client is bound to your extension ID.
@@ -61,6 +61,10 @@ Build output is written to `dist/`.
    - `https://www.googleapis.com/auth/calendar.events`
    - `https://www.googleapis.com/auth/calendar.calendarlist.readonly`
 
-### Build artifact workflow
+## Build artifact workflow
 
 GitHub Actions builds and uploads `dist/**` as a versioned artifact name (`codeforces-calendar-v<version>`), so the downloaded artifact contains extension files directly.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE)
