@@ -29,7 +29,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://codeforces.com/contests"],
+      "matches": ["https://codeforces.com/contests*"],
       "js": ["assets/contentScript.js"],
       "css": ["styles/content.css"],
       "run_at": "document_end"
