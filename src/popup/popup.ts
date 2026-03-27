@@ -1,7 +1,13 @@
 import { fetchCalendarList, type CalendarListEntry } from "../lib/google-calendar";
 import { getAuthTokenInteractive, getAuthTokenWithAccountPicker } from "../lib/chrome-identity";
 import type { SignOutResponse } from "../lib/messages";
-import { getSelectedCalendarId, getStoredCalendarSummary, setSelectedCalendar } from "../lib/storage";
+import {
+  clearTrackedContests,
+  getSelectedCalendarId,
+  getStoredCalendarId,
+  getStoredCalendarSummary,
+  setSelectedCalendar
+} from "../lib/storage";
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const authSection = document.getElementById("auth-section") as HTMLDivElement;
@@ -96,6 +102,10 @@ async function persistCalendarSelection(): Promise<void> {
   const opt = calendarSelect.selectedOptions[0];
   const summary = opt?.textContent?.replace(/\s*\(primary\)\s*$/, "").trim() ?? id;
   try {
+    const previousId = await getStoredCalendarId();
+    if (previousId !== undefined && previousId !== id) {
+      await clearTrackedContests();
+    }
     await setSelectedCalendar(id, summary);
     setStatus(`Saved: ${summary}`);
   } catch {

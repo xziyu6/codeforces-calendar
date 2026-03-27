@@ -12,6 +12,13 @@ export async function getSelectedCalendarId(): Promise<string> {
   return typeof id === "string" && id.length > 0 ? id : DEFAULT_CALENDAR_ID;
 }
 
+/** Raw stored id when the user has saved a choice; otherwise undefined (do not conflate with default `"primary"`). */
+export async function getStoredCalendarId(): Promise<string | undefined> {
+  const data = await chrome.storage.sync.get(STORAGE_KEYS.selectedCalendarId);
+  const id = data[STORAGE_KEYS.selectedCalendarId];
+  return typeof id === "string" && id.length > 0 ? id : undefined;
+}
+
 export async function setSelectedCalendar(id: string, summary: string): Promise<void> {
   await chrome.storage.sync.set({
     [STORAGE_KEYS.selectedCalendarId]: id,

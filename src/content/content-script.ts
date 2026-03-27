@@ -1,19 +1,14 @@
 import {
   isGetTrackedContestsRequest,
-  isSyncContestFallbackRequest,
-  isSyncContestRequest,
   isTrackContestRequest,
   type GetTrackedContestsRequest,
   type GetTrackedContestsResponse,
   type RowSyncState,
-  type SyncContestFallbackRequest,
-  type SyncContestRequest,
   type SyncContestResponse,
   type TrackContestRequest
 } from "../lib/messages";
 import { utcRangeFromDom, utcRangeFromTimeanddateHref } from "../lib/time";
 
-const INJECTED_ATTR = "data-cf-sync-injected";
 const STATUS_ATTR = "data-cf-sync-status";
 const trackedContestIds = new Set<string>();
 
@@ -59,10 +54,8 @@ async function sendMessage<T>(request: unknown): Promise<{ response?: T; error?:
   });
 }
 
-async function sendSyncRequest(
-  request: SyncContestRequest | SyncContestFallbackRequest | TrackContestRequest
-): Promise<SyncContestResponse> {
-  if (!isSyncContestRequest(request) && !isSyncContestFallbackRequest(request) && !isTrackContestRequest(request)) {
+async function sendTrackRequest(request: TrackContestRequest): Promise<SyncContestResponse> {
+  if (!isTrackContestRequest(request)) {
     return { ok: false, code: "BAD_REQUEST", message: "Client-side request validation failed." };
   }
 
@@ -99,18 +92,25 @@ function buildStatusElement(): HTMLSpanElement {
   return status;
 }
 
+function renderTrackedState(row: HTMLTableRowElement, button: HTMLButtonElement): void {
+  setRowStatus(row, "synced", "added");
+  button.textContent = "Sync";
+}
+
+function renderUntrackedState(row: HTMLTableRowElement, button: HTMLButtonElement): void {
+  setRowStatus(row, "idle", "idle");
+  button.textContent = "Sync";
+}
+
 async function injectButtons(): Promise<void> {
   const table = findUpcomingTable();
   if (!table) {
     return;
   }
 
-  // Inject once per row; observer re-runs this when Codeforces redraws the table.
+  // Single-pass startup injection.
   const rows = table.querySelectorAll<HTMLTableRowElement>("tr[data-contestid]");
   for (const row of rows) {
-    if (row.getAttribute(INJECTED_ATTR) === "1") continue;
-    row.setAttribute(INJECTED_ATTR, "1");
-
     const contestId = row.getAttribute("data-contestid");
     if (!contestId) continue;
 
@@ -119,10 +119,7 @@ async function injectButtons(): Promise<void> {
     actionCell.appendChild(statusEl);
   
     const button = buildSyncButton(async () => {
-      if (trackedContestIds.has(contestId)) {
-        setRowStatus(row, "synced", "added");
-        return;
-      }
+      const trackedBeforeClick = trackedContestIds.has(contestId);
       setRowStatus(row, "syncing", "syncing");
 
       let title: string;
@@ -135,65 +132,39 @@ async function injectButtons(): Promise<void> {
       const timeAnchor = startCell?.querySelector<HTMLAnchorElement>("a[href*='timeanddate.com']");
       const href = timeAnchor?.href ?? "";
       const startText = startCell?.textContent ?? "";
+      const sourceUrl = `https://codeforces.com/contest/${contestId}`;
 
       range = utcRangeFromTimeanddateHref(href, durationText) ?? utcRangeFromDom(startText, durationText);
-
-      if (!range) {
-        const trackRequest: TrackContestRequest = {
-          type: "CF_TRACK_CONTEST",
-          contestId,
-          title,
-          sourceUrl: `https://codeforces.com/contest/${contestId}`
-        };
-
-        const response = await sendSyncRequest(trackRequest);
-        if (response.ok) {
-          trackedContestIds.add(contestId);
-          button.textContent = "Added";
-          button.disabled = true;
-          if (response.warning) {
-            setRowStatus(row, "error", `${response.action} (fallback)`);
-          } else {
-            setRowStatus(row, "synced", "added");
-          }
-        } else {
-          setRowStatus(row, "error", response.message);
-        }
-        return;
-      }
-
       const request: TrackContestRequest = {
         type: "CF_TRACK_CONTEST",
         contestId,
         title,
-        startUtcIso: range.startUtcIso,
-        endUtcIso: range.endUtcIso,
-        sourceUrl: `https://codeforces.com/contest/${contestId}`
+        sourceUrl,
+        ...(range ? { startUtcIso: range.startUtcIso, endUtcIso: range.endUtcIso } : {})
       };
-      const response = await sendSyncRequest(request);
+      const response = await sendTrackRequest(request);
       if (response.ok) {
         trackedContestIds.add(contestId);
-        button.textContent = "Added";
-        button.disabled = true;
-        if (response.warning) {
+        if (!range) {
           setRowStatus(row, "error", `${response.action} (fallback)`);
+          button.textContent = "Sync";
+        } else if (response.warning) {
+          setRowStatus(row, "error", `${response.action} (fallback)`);
+          button.textContent = "Sync";
         } else {
-          setRowStatus(row, "synced", "added");
+          renderTrackedState(row, button);
         }
       } else {
         setRowStatus(row, "error", response.message);
+        button.textContent = "Sync";
       }
     });
+    actionCell.appendChild(button);
 
     if (trackedContestIds.has(contestId)) {
-      button.textContent = "Added";
-      button.disabled = true;
-      setRowStatus(row, "synced", "added");
-    }
-
-    actionCell.appendChild(button);
-    if (!trackedContestIds.has(contestId)) {
-      setRowStatus(row, "idle", "idle");
+      renderTrackedState(row, button);
+    } else {
+      renderUntrackedState(row, button);
     }
   }
 }
@@ -202,8 +173,3 @@ void (async () => {
   await loadTrackedContests();
   await injectButtons();
 })();
-
-const observer = new MutationObserver(() => {
-  void injectButtons();
-});
-observer.observe(document.body, { childList: true, subtree: true });

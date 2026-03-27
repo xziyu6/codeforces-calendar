@@ -14,8 +14,6 @@ import {
   isGetTrackedContestsRequest,
   isSignOutRequest,
   isTrackContestRequest,
-  isSyncContestRequest,
-  isSyncContestFallbackRequest,
   type GetTrackedContestsResponse,
   type SignOutResponse,
   type SyncContestRequest,
@@ -23,7 +21,16 @@ import {
 } from "../lib/messages";
 
 const RECURRING_SYNC_ALARM = "CF_RECURRING_SYNC_ALARM";
-const RECURRING_SYNC_INTERVAL_MINUTES = 30;
+const RECURRING_SYNC_INTERVAL_MINUTES = 240;
+
+function toSyncErrorCode(message: string): "AUTH" | "API" {
+  return message.includes("auth") || message.includes("token") ? "AUTH" : "API";
+}
+
+function isGoogleNotFoundError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Google API failed (404):");
+}
 
 function buildSyncRequestFromContest(contest: CfContest): SyncContestRequest {
   const range = utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds);
@@ -37,11 +44,9 @@ function buildSyncRequestFromContest(contest: CfContest): SyncContestRequest {
   };
 }
 
-async function ensureRecurringSyncAlarm(): Promise<void> {
-  const alarm = await chrome.alarms.get(RECURRING_SYNC_ALARM);
-  if (!alarm) {
-    chrome.alarms.create(RECURRING_SYNC_ALARM, { periodInMinutes: RECURRING_SYNC_INTERVAL_MINUTES });
-  }
+function ensureRecurringSyncAlarm(): void {
+  // Replacing an existing alarm updates its period (e.g. after interval change in an update).
+  chrome.alarms.create(RECURRING_SYNC_ALARM, { periodInMinutes: RECURRING_SYNC_INTERVAL_MINUTES });
 }
 
 async function reconcileTrackedContests(): Promise<void> {
@@ -62,13 +67,21 @@ async function reconcileTrackedContests(): Promise<void> {
       continue;
     }
     stillTracked.push(contestId);
-    await createOrUpdateCalendarEvent(buildSyncRequestFromContest(contest), token, calendarId);
+    const request = buildSyncRequestFromContest(contest);
+    try {
+      await patchCalendarEvent(request, token, calendarId);
+    } catch (error) {
+      if (isGoogleNotFoundError(error)) {
+        await createOrUpdateCalendarEvent(request, token, calendarId);
+      } else {
+        throw error;
+      }
+    }
   }
 
   await setTrackedContests(stillTracked);
 }
 
-void ensureRecurringSyncAlarm();
 chrome.runtime.onInstalled.addListener(() => {
   void ensureRecurringSyncAlarm();
 });
@@ -76,8 +89,9 @@ chrome.runtime.onStartup.addListener(() => {
   void ensureRecurringSyncAlarm();
 });
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== RECURRING_SYNC_ALARM) return;
-  void reconcileTrackedContests();
+  if (alarm.name === RECURRING_SYNC_ALARM) {
+    void reconcileTrackedContests();
+  }
 });
 
 chrome.runtime.onMessage.addListener(
@@ -118,10 +132,9 @@ chrome.runtime.onMessage.addListener(
       (async () => {
         try {
           const [token, calendarId] = await Promise.all([getFreshAuthToken(), getSelectedCalendarId()]);
-          let request: SyncContestRequest;
-
+          let action: "created" | "updated";
           if (message.startUtcIso && message.endUtcIso) {
-            request = {
+            const request: SyncContestRequest = {
               type: "CF_SYNC_CONTEST",
               contestId: message.contestId,
               title: message.title,
@@ -129,86 +142,34 @@ chrome.runtime.onMessage.addListener(
               endUtcIso: message.endUtcIso,
               sourceUrl: message.sourceUrl
             };
+
+            // Fast path with DOM values; verify against API in parallel and correct mismatches.
+            const upsertPromise = createOrUpdateCalendarEvent(request, token, calendarId);
+            const contestPromise = fetchContestById(message.contestId).catch(() => null);
+            const [upsertAction, contest] = await Promise.all([upsertPromise, contestPromise]);
+            action = upsertAction;
+
+            if (contest?.startTimeSeconds) {
+              const canonical = buildSyncRequestFromContest(contest);
+              const timeMismatch =
+                canonical.startUtcIso !== request.startUtcIso || canonical.endUtcIso !== request.endUtcIso;
+              const titleMismatch = canonical.title !== request.title;
+              if (timeMismatch || titleMismatch) {
+                await patchCalendarEvent(canonical, token, calendarId);
+              }
+            }
           } else {
             const contest = await fetchContestById(message.contestId);
             if (!contest) throw new Error("contest missing from API response");
-            request = buildSyncRequestFromContest(contest);
+            const request = buildSyncRequestFromContest(contest);
+            action = await createOrUpdateCalendarEvent(request, token, calendarId);
           }
 
-          const action = await createOrUpdateCalendarEvent(request, token, calendarId);
           await addTrackedContest(message.contestId);
-          await ensureRecurringSyncAlarm();
           sendResponse({ ok: true, action });
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Unknown background error";
-          const code = msg.includes("auth") || msg.includes("token") ? "AUTH" : "API";
-          sendResponse({ ok: false, code, message: msg });
-        }
-      })();
-      return true;
-    }
-
-    if (isSyncContestFallbackRequest(message)) {
-      (async () => {
-        try {
-          const [token, calendarId] = await Promise.all([getFreshAuthToken(), getSelectedCalendarId()]);
-          const contest = await fetchContestById(message.contestId);
-          if (!contest) throw new Error("contest missing from API response");
-
-          const range = utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds);
-
-          const request = {
-            type: "CF_SYNC_CONTEST" as const,
-            contestId: message.contestId,
-            title: message.title,
-            startUtcIso: range.startUtcIso,
-            endUtcIso: range.endUtcIso,
-            sourceUrl: message.sourceUrl
-          };
-
-          const action = await createOrUpdateCalendarEvent(request, token, calendarId);
-          sendResponse({ ok: true, action, warning: "fallback" });
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : "Unknown background error";
-          const code = msg.includes("auth") || msg.includes("token") ? "AUTH" : "API";
-          sendResponse({ ok: false, code, message: msg });
-        }
-      })();
-      return true;
-    }
-
-    if (isSyncContestRequest(message)) {
-      (async () => {
-        try {
-          const [token, calendarId] = await Promise.all([getFreshAuthToken(), getSelectedCalendarId()]);
-
-          // Run Google upsert and Codeforces verification in parallel.
-          const upsertPromise = createOrUpdateCalendarEvent(message, token, calendarId);
-          const contestPromise = fetchContestById(message.contestId).catch(() => null);
-
-          const [action, contest] = await Promise.all([upsertPromise, contestPromise]);
-
-          // Non-blocking correction: patch only if API data disagrees with DOM-href parsed times/title.
-          if (contest?.startTimeSeconds) {
-            const canonicalRange = utcRangeFromContest(contest.startTimeSeconds, contest.durationSeconds);
-            const timeMismatch =
-              canonicalRange.startUtcIso !== message.startUtcIso || canonicalRange.endUtcIso !== message.endUtcIso;
-
-            const titleMismatch = contest.name !== message.title;
-
-            if (timeMismatch || titleMismatch) {
-              await patchCalendarEvent(
-                { ...message, title: contest.name, startUtcIso: canonicalRange.startUtcIso, endUtcIso: canonicalRange.endUtcIso },
-                token,
-                calendarId
-              );
-            }
-          }
-
-          sendResponse({ ok: true, action });
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : "Unknown background error";
-          const code = msg.includes("auth") || msg.includes("token") ? "AUTH" : "API";
+          const code = toSyncErrorCode(msg);
           sendResponse({ ok: false, code, message: msg });
         }
       })();
