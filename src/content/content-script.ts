@@ -1,15 +1,21 @@
 import {
+  isGetTrackedContestsRequest,
   isSyncContestFallbackRequest,
   isSyncContestRequest,
+  isTrackContestRequest,
+  type GetTrackedContestsRequest,
+  type GetTrackedContestsResponse,
   type RowSyncState,
   type SyncContestFallbackRequest,
   type SyncContestRequest,
-  type SyncContestResponse
+  type SyncContestResponse,
+  type TrackContestRequest
 } from "../lib/messages";
 import { utcRangeFromDom, utcRangeFromTimeanddateHref } from "../lib/time";
 
 const INJECTED_ATTR = "data-cf-sync-injected";
 const STATUS_ATTR = "data-cf-sync-status";
+const trackedContestIds = new Set<string>();
 
 
 function setRowStatus(row: HTMLTableRowElement, status: RowSyncState, message = ""): void {
@@ -41,20 +47,38 @@ function ensureActionCell(row: HTMLTableRowElement): HTMLTableCellElement {
   return cell;
 }
 
-async function sendSyncRequest(request: SyncContestRequest | SyncContestFallbackRequest): Promise<SyncContestResponse> {
-  if (!isSyncContestRequest(request) && !isSyncContestFallbackRequest(request)) {
+async function sendMessage<T>(request: unknown): Promise<{ response?: T; error?: string }> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(request, (response: T) => {
+      if (chrome.runtime.lastError) {
+        resolve({ error: chrome.runtime.lastError.message ?? "Message channel failed." });
+        return;
+      }
+      resolve({ response });
+    });
+  });
+}
+
+async function sendSyncRequest(
+  request: SyncContestRequest | SyncContestFallbackRequest | TrackContestRequest
+): Promise<SyncContestResponse> {
+  if (!isSyncContestRequest(request) && !isSyncContestFallbackRequest(request) && !isTrackContestRequest(request)) {
     return { ok: false, code: "BAD_REQUEST", message: "Client-side request validation failed." };
   }
 
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(request, (response: SyncContestResponse) => {
-      if (chrome.runtime.lastError) {
-        resolve({ ok: false, code: "NETWORK", message: chrome.runtime.lastError.message ?? "Message channel failed." });
-        return;
-      }
-      resolve(response);
-    });
-  });
+  const { response, error } = await sendMessage<SyncContestResponse>(request);
+  if (error) return { ok: false, code: "NETWORK", message: error };
+  return response ?? { ok: false, code: "UNKNOWN", message: "No response received." };
+}
+
+async function loadTrackedContests(): Promise<void> {
+  const request: GetTrackedContestsRequest = { type: "CF_GET_TRACKED_CONTESTS" };
+  if (!isGetTrackedContestsRequest(request)) return;
+  const { response } = await sendMessage<GetTrackedContestsResponse>(request);
+  if (response?.ok) {
+    trackedContestIds.clear();
+    for (const id of response.contestIds) trackedContestIds.add(id);
+  }
 }
 
 function buildSyncButton(onClick: () => Promise<void>): HTMLButtonElement {
@@ -95,6 +119,10 @@ async function injectButtons(): Promise<void> {
     actionCell.appendChild(statusEl);
   
     const button = buildSyncButton(async () => {
+      if (trackedContestIds.has(contestId)) {
+        setRowStatus(row, "synced", "added");
+        return;
+      }
       setRowStatus(row, "syncing", "syncing");
 
       let title: string;
@@ -111,19 +139,22 @@ async function injectButtons(): Promise<void> {
       range = utcRangeFromTimeanddateHref(href, durationText) ?? utcRangeFromDom(startText, durationText);
 
       if (!range) {
-        const fallbackRequest: SyncContestFallbackRequest = {
-          type: "CF_SYNC_CONTEST_FALLBACK",
+        const trackRequest: TrackContestRequest = {
+          type: "CF_TRACK_CONTEST",
           contestId,
           title,
           sourceUrl: `https://codeforces.com/contest/${contestId}`
         };
 
-        const response = await sendSyncRequest(fallbackRequest);
+        const response = await sendSyncRequest(trackRequest);
         if (response.ok) {
+          trackedContestIds.add(contestId);
+          button.textContent = "Added";
+          button.disabled = true;
           if (response.warning) {
             setRowStatus(row, "error", `${response.action} (fallback)`);
           } else {
-            setRowStatus(row, "synced", response.action);
+            setRowStatus(row, "synced", "added");
           }
         } else {
           setRowStatus(row, "error", response.message);
@@ -131,8 +162,8 @@ async function injectButtons(): Promise<void> {
         return;
       }
 
-      const request: SyncContestRequest = {
-        type: "CF_SYNC_CONTEST",
+      const request: TrackContestRequest = {
+        type: "CF_TRACK_CONTEST",
         contestId,
         title,
         startUtcIso: range.startUtcIso,
@@ -141,22 +172,36 @@ async function injectButtons(): Promise<void> {
       };
       const response = await sendSyncRequest(request);
       if (response.ok) {
+        trackedContestIds.add(contestId);
+        button.textContent = "Added";
+        button.disabled = true;
         if (response.warning) {
           setRowStatus(row, "error", `${response.action} (fallback)`);
         } else {
-          setRowStatus(row, "synced", response.action);
+          setRowStatus(row, "synced", "added");
         }
       } else {
         setRowStatus(row, "error", response.message);
       }
     });
 
+    if (trackedContestIds.has(contestId)) {
+      button.textContent = "Added";
+      button.disabled = true;
+      setRowStatus(row, "synced", "added");
+    }
+
     actionCell.appendChild(button);
-    setRowStatus(row, "idle", "idle");
+    if (!trackedContestIds.has(contestId)) {
+      setRowStatus(row, "idle", "idle");
+    }
   }
 }
 
-void injectButtons();
+void (async () => {
+  await loadTrackedContests();
+  await injectButtons();
+})();
 
 const observer = new MutationObserver(() => {
   void injectButtons();

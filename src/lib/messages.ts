@@ -16,6 +16,19 @@ export interface SyncContestFallbackRequest {
   sourceUrl: string;
 }
 
+export interface TrackContestRequest {
+  type: "CF_TRACK_CONTEST";
+  contestId: string;
+  title: string;
+  sourceUrl: string;
+  startUtcIso?: string;
+  endUtcIso?: string;
+}
+
+export interface GetTrackedContestsRequest {
+  type: "CF_GET_TRACKED_CONTESTS";
+}
+
 export interface SyncContestOk {
   ok: true;
   action: "created" | "updated";
@@ -29,6 +42,10 @@ export interface SyncContestError {
 }
 
 export type SyncContestResponse = SyncContestOk | SyncContestError;
+export type TrackContestResponse = SyncContestResponse;
+export type GetTrackedContestsResponse =
+  | { ok: true; contestIds: string[] }
+  | { ok: false; code: "API" | "UNKNOWN"; message: string };
 
 export interface SignOutRequest {
   type: "CF_SIGN_OUT";
@@ -61,5 +78,26 @@ export function isSyncContestFallbackRequest(value: unknown): value is SyncConte
     typeof candidate.contestId === "string" &&
     typeof candidate.title === "string" &&
     typeof candidate.sourceUrl === "string"
+  );
+}
+
+export function isTrackContestRequest(value: unknown): value is TrackContestRequest {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.type === "CF_TRACK_CONTEST" &&
+    typeof candidate.contestId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.sourceUrl === "string" &&
+    (candidate.startUtcIso === undefined || typeof candidate.startUtcIso === "string") &&
+    (candidate.endUtcIso === undefined || typeof candidate.endUtcIso === "string")
+  );
+}
+
+export function isGetTrackedContestsRequest(value: unknown): value is GetTrackedContestsRequest {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as GetTrackedContestsRequest).type === "CF_GET_TRACKED_CONTESTS"
   );
 }
