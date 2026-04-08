@@ -18,6 +18,9 @@ If you see a red status next to a contest row (for example `error` or `created (
 - Uses Google sign-in and Calendar access to create/update events.
 - Reads Codeforces upcoming contest pages and Codeforces API to get contest data.
 
+## Privacy Policy
+See [here](https://xziyu6.github.io/codeforces-calendar/privacy-policy)
+
 ---
 
 ## How it works
