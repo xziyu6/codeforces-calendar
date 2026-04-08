@@ -12,7 +12,7 @@ It injects `Sync` buttons into the Codeforces upcoming contests table. Clicking 
 
 ## If things break
 
-If you see a red status next to a contest row (for example `error` or `created (fallback)` / `updated (fallback)`), or encounter any bugs, please report to me in [Github Issues](https://github.com/xziyu6/codeforces-calendar/issues/new).
+If you see a red status next to a contest row (for example `error` or `created (fallback)` / `updated (fallback)`), or encounter any bugs, please report to me in [Github Issues](https://github.com/xziyu6/codeforces-calendar/issues).
 
 ## Permissions
 - Uses Google sign-in and Calendar access to create/update events.
